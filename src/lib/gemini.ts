@@ -1,12 +1,13 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-const apiKey = process.env.GEMINI_API_KEY;
+// 1. Vite 환경 변수 호출 방식으로 변경
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!apiKey) {
-  console.warn("GEMINI_API_KEY is missing. AI features will not work.");
+  console.warn("VITE_GEMINI_API_KEY is missing. AI features will not work.");
 }
 
-const ai = new GoogleGenAI({ apiKey: apiKey || "" });
+const genAI = new GoogleGenerativeAI(apiKey || "");
 
 export interface SafetyAnalysis {
   risks: {
@@ -29,6 +30,46 @@ export async function analyzeOSCSafety(params: {
   windSpeed: string;
   environment: string;
 }): Promise<SafetyAnalysis> {
+  // 2. 모델 설정 및 JSON 스키마 정의
+  const model = genAI.getGenerativeModel({
+    model: "gemini-3-flash", // 최신 모델명 확인
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: SchemaType.OBJECT,
+        properties: {
+          risks: {
+            type: SchemaType.OBJECT,
+            properties: {
+              transport: { type: SchemaType.STRING },
+              lifting: { type: SchemaType.STRING },
+              connection: { type: SchemaType.STRING },
+            },
+            required: ["transport", "lifting", "connection"],
+          },
+          koshaSummary: { type: SchemaType.STRING },
+          jsa: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                step: { type: SchemaType.STRING },
+                hazard: { type: SchemaType.STRING },
+                measure: { type: SchemaType.STRING },
+              },
+              required: ["step", "hazard", "measure"],
+            },
+          },
+          checklist: {
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
+          },
+        },
+        required: ["risks", "koshaSummary", "jsa", "checklist"],
+      },
+    },
+  });
+
   const prompt = `
     당신은 건설 안전 관리 전문가입니다. 다음 OSC(Off-Site Construction) 작업 조건에 대한 안전 분석을 수행하세요.
     
@@ -47,49 +88,13 @@ export async function analyzeOSCSafety(params: {
     모든 내용은 한국어로 작성하세요.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          risks: {
-            type: Type.OBJECT,
-            properties: {
-              transport: { type: Type.STRING },
-              lifting: { type: Type.STRING },
-              connection: { type: Type.STRING },
-            },
-            required: ["transport", "lifting", "connection"],
-          },
-          koshaSummary: { type: Type.STRING },
-          jsa: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                step: { type: Type.STRING },
-                hazard: { type: Type.STRING },
-                measure: { type: Type.STRING },
-              },
-              required: ["step", "hazard", "measure"],
-            },
-          },
-          checklist: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-          },
-        },
-        required: ["risks", "koshaSummary", "jsa", "checklist"],
-      },
-    },
-  });
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
 
-  if (!response.text) {
+  if (!text) {
     throw new Error("AI 응답을 생성하지 못했습니다.");
   }
 
-  return JSON.parse(response.text) as SafetyAnalysis;
+  return JSON.parse(text) as SafetyAnalysis;
 }
