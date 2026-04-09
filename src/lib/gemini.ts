@@ -32,7 +32,7 @@ export async function analyzeOSCSafety(params: {
 }): Promise<SafetyAnalysis> {
   // 2. 모델 설정 및 JSON 스키마 정의
   const model = genAI.getGenerativeModel({
-    model: "gemini-3-flash", // 최신 모델명 확인
+    model: "gemini-1.5-flash", // 최신 모델명 확인
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: {
