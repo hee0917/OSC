@@ -1,10 +1,10 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// 1. Vite 환경 변수 호출 방식으로 변경
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+// 1. 환경 변수 호출 방식으로 변경
+const apiKey = import.meta.env.GEMINI_API_KEY;
 
 if (!apiKey) {
-  console.warn("VITE_GEMINI_API_KEY is missing. AI features will not work.");
+  console.warn("GEMINI_API_KEY is missing. AI features will not work.");
 }
 
 const genAI = new GoogleGenerativeAI(apiKey || "");
